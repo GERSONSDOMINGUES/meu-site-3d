@@ -1,39 +1,30 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-
-  <title>Meu Portfólio 3D com Câmera</title>
+  <meta name="theme-color" content="#020617">
+  <title>Portfólio 3D • Câmera + Movimento</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Renderizador de modelos GLB -->
   <script type="module"
     src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
   </script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html, body {
       margin: 0;
-      width: 100%;
       min-height: 100%;
-      font-family: Arial, sans-serif;
       background: #020617;
-      color: white;
+      color: #fff;
+      font-family: Inter, system-ui, Arial, sans-serif;
     }
 
-    body {
-      overflow-x: hidden;
-    }
+    body { overflow-x: hidden; }
 
-    /* Fundo da câmera */
-    #cameraBackground {
+    #camera {
       position: fixed;
       inset: 0;
       width: 100%;
@@ -43,341 +34,252 @@
       z-index: 0;
     }
 
-    /* Camada escura para melhorar a leitura */
-    .camera-overlay {
+    .camera-shade {
       position: fixed;
       inset: 0;
-      background: linear-gradient(
-        180deg,
-        rgba(2, 6, 23, 0.70) 0%,
-        rgba(2, 6, 23, 0.12) 45%,
-        rgba(2, 6, 23, 0.80) 100%
-      );
-      pointer-events: none;
       z-index: 1;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, rgba(2,6,23,.78) 0%, rgba(2,6,23,.12) 42%, rgba(2,6,23,.82) 100%);
     }
 
-    /* Conteúdo acima da câmera */
-    .page-content {
+    .app {
       position: relative;
       z-index: 2;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
     }
 
     .glass {
-      background: rgba(2, 15, 35, 0.68);
-      border: 1px solid rgba(148, 163, 184, 0.28);
-      border-radius: 18px;
+      background: rgba(2, 15, 35, .70);
+      border: 1px solid rgba(148, 163, 184, .28);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
+      border-radius: 18px;
     }
 
-    .brand-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #0284c7, #2563eb);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      font-weight: bold;
-    }
-
-    .action-btn {
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      background: rgba(15, 23, 42, 0.80);
-      color: white;
-      padding: 12px 18px;
-      border-radius: 999px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    .action-btn:hover {
-      background: #0369a1;
-      border-color: #38bdf8;
-    }
-
-    .action-btn.primary {
-      background: #0284c7;
-      border-color: #0284c7;
-    }
-
-    .action-btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    /* Visualizador transparente sobre a câmera */
     model-viewer {
+      display: block;
       width: 100%;
-      height: 540px;
-      background-color: transparent;
+      height: min(68vh, 620px);
+      min-height: 420px;
+      background: transparent;
       --poster-color: transparent;
       --progress-bar-color: #38bdf8;
     }
 
-    .viewer-container {
+    .viewer {
       position: relative;
       overflow: hidden;
-      border-radius: 18px;
-      background: rgba(2, 6, 23, 0.16);
+      border-radius: 16px;
+      background: rgba(2,6,23,.08);
     }
 
-    .viewer-loading {
+    .viewer::after {
+      content: "";
       position: absolute;
       inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       pointer-events: none;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
     }
 
-    .viewer-loading.hidden {
-      display: none;
+    .btn {
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.35);
+      background: rgba(15,23,42,.86);
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
     }
+
+    .btn:hover { background: rgba(3,105,161,.92); }
+    .btn.primary { background: #0284c7; border-color: #0284c7; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .loader {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .loader.hidden { display: none; }
+
+    .status {
+      min-height: 22px;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    input[type=file] { display: none; }
 
     @media (max-width: 640px) {
       model-viewer {
-        height: 440px;
+        height: 54vh;
+        min-height: 390px;
       }
     }
 
-    .status-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #f59e0b;
-      margin-right: 8px;
-    }
-
-    .status-dot.active {
-      background: #22c55e;
-    }
-
-    .camera-placeholder {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      background:
-        radial-gradient(circle at 50% 40%, #1e3a5f, #020617 75%);
-    }
-
-    .camera-placeholder.hidden {
-      display: none;
-    }
-
-    .camera-toggle {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      justify-content: center;
-    }
-
-    footer {
-      margin-top: auto;
+    @media (prefers-reduced-motion: reduce) {
+      * { scroll-behavior: auto !important; }
     }
   </style>
 </head>
 
 <body>
 
-  <!-- FUNDO DA CÂMERA TRASEIRA -->
-  <video
-    id="cameraBackground"
-    autoplay
-    playsinline
-    muted>
-  </video>
+  <!-- Câmera traseira como fundo -->
+  <video id="camera" autoplay playsinline muted></video>
+  <div class="camera-shade"></div>
 
-  <div id="cameraPlaceholder" class="camera-placeholder"></div>
+  <div class="app">
 
-  <div class="camera-overlay"></div>
-
-  <!-- TODO O CONTEÚDO DO SITE -->
-  <div class="page-content">
-
-    <!-- CABEÇALHO -->
-    <header class="border-b border-white/10"
-      style="background:rgba(2,8,23,.65);backdrop-filter:blur(12px)">
-
-      <div class="max-w-7xl mx-auto px-5 md:px-8">
-        <div class="flex items-center justify-between h-20">
-
-          <a href="#" class="flex items-center gap-3">
-            <div class="brand-icon">◈</div>
-
-            <div class="text-xl md:text-2xl font-bold">
-              Meu Portfólio <span class="text-sky-400">3D</span>
-            </div>
-          </a>
-
-          <div class="flex items-center gap-3">
-            <span class="hidden sm:inline text-xs text-slate-300">
-              <span id="headerDot" class="status-dot"></span>
-              <span id="headerStatus">Câmera desligada</span>
-            </span>
-
-            <button id="headerCameraBtn" class="action-btn">
-              📷 Câmera
-            </button>
+    <header class="border-b border-white/10 bg-slate-950/65 backdrop-blur-md">
+      <div class="max-w-6xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 grid place-items-center text-2xl">
+            ◈
           </div>
-
+          <div>
+            <div class="font-bold text-lg md:text-xl">Meu Portfólio 3D</div>
+            <div class="text-xs text-slate-400">Câmera + movimento do celular</div>
+          </div>
         </div>
+
+        <button id="startBtn" class="btn primary" type="button">
+          📷 Ativar experiência
+        </button>
       </div>
     </header>
 
-    <!-- CONTEÚDO PRINCIPAL -->
-    <main class="max-w-7xl mx-auto w-full px-5 md:px-8 py-8 flex-1">
+    <main class="max-w-6xl mx-auto px-4 md:px-6 py-7">
 
-      <section class="mb-8">
-        <p class="text-sky-300 text-xs font-bold uppercase tracking-widest mb-3">
-          Realidade aumentada • Portfólio 3D
+      <section class="mb-6">
+        <p class="text-sky-300 text-xs font-bold uppercase tracking-[.18em] mb-2">
+          Experiência 3D
         </p>
-
-        <h1 class="text-4xl md:text-5xl font-bold leading-tight">
-          Seu objeto 3D<br>
-          <span class="text-sky-300">no mundo real.</span>
+        <h1 class="text-3xl md:text-5xl font-black leading-tight">
+          Seu modelo 3D sobre a câmera.
         </h1>
-
-        <p class="text-slate-200 mt-4 max-w-xl leading-relaxed">
-          Ative a câmera traseira e explore seu modelo tridimensional
-          sobre o ambiente ao seu redor.
+        <p class="text-slate-200 max-w-2xl mt-3 leading-relaxed">
+          Coloque seu arquivo GLB no site, ative a câmera traseira e mova o celular.
+          O ângulo do modelo acompanha os movimentos do aparelho.
         </p>
       </section>
 
-      <!-- ÁREA DO OBJETO -->
       <section class="glass p-3 md:p-5">
 
-        <div class="flex flex-wrap items-center justify-between gap-3 px-2 pb-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-1 pb-4">
           <div>
-            <p class="text-xs text-slate-400 uppercase tracking-wider">
-              Modelo em destaque
-            </p>
-
-            <h2 id="modelTitle" class="text-xl font-bold mt-1">
-              Meu Modelo 3D
-            </h2>
+            <div class="text-xs uppercase tracking-wider text-slate-400">Modelo</div>
+            <h2 id="modelName" class="font-bold text-xl mt-1">modelo.glb</h2>
           </div>
 
-          <span class="bg-sky-500/20 border border-sky-400/40 text-sky-300 text-xs font-bold px-3 py-1.5 rounded-full">
+          <span class="px-3 py-1.5 rounded-full text-xs font-bold bg-sky-500/15 border border-sky-400/35 text-sky-300">
             GLB
           </span>
         </div>
 
-        <div class="viewer-container">
-
+        <div class="viewer">
           <model-viewer
-            id="viewer"
+            id="model"
             src="./modelo.glb"
-            alt="Objeto 3D do portfólio"
+            alt="Meu objeto 3D"
             camera-controls
             auto-rotate
+            interaction-prompt="auto"
             shadow-intensity="1"
             exposure="1"
             environment-image="neutral"
             camera-orbit="0deg 75deg 2.5m"
-            field-of-view="45deg"
-            interaction-prompt="auto">
+            field-of-view="45deg">
 
-            <div id="viewerLoading" class="viewer-loading">
+            <div id="loader" class="loader">
               <div class="glass px-5 py-4 text-center">
-                <div class="text-3xl mb-2 animate-pulse">◈</div>
-                <p class="text-sm text-slate-200">
-                  Carregando objeto 3D...
-                </p>
+                <div class="text-2xl mb-2">◈</div>
+                <div class="text-sm">Carregando modelo 3D...</div>
               </div>
             </div>
-
           </model-viewer>
         </div>
 
-        <!-- CONTROLES -->
         <div class="flex flex-wrap gap-2 mt-4">
-          <button id="rotateBtn" class="action-btn primary">
+          <button id="cameraBtn" class="btn primary" type="button">
+            📷 Câmera traseira
+          </button>
+
+          <button id="motionBtn" class="btn primary" type="button">
+            🧭 Ativar movimento
+          </button>
+
+          <button id="rotateBtn" class="btn" type="button">
             ↻ Pausar rotação
           </button>
 
-          <button id="resetBtn" class="action-btn">
-            ⟳ Restaurar câmera
+          <button id="resetBtn" class="btn" type="button">
+            ⟳ Restaurar
           </button>
 
-          <button id="cameraBtn" class="action-btn">
-            📷 Ativar câmera
-          </button>
-
-          <button id="stopCameraBtn" class="action-btn" disabled>
-            ✕ Desligar câmera
-          </button>
+          <label class="btn cursor-pointer" for="fileInput">
+            📦 Meu GLB
+          </label>
+          <input id="fileInput" type="file" accept=".glb,model/gltf-binary">
         </div>
 
-        <p id="modelStatus" class="text-sm text-slate-300 mt-4 px-1">
-          Preparando o modelo 3D...
-        </p>
-
-      </section>
-
-      <!-- PAINEL DE CÂMERA -->
-      <section class="glass p-5 mt-6">
-
-        <div class="flex items-start gap-4">
-          <div class="text-3xl">📷</div>
-
-          <div class="flex-1">
-            <h2 class="text-xl font-bold">Câmera traseira</h2>
-
-            <p class="text-sm text-slate-300 mt-2 leading-relaxed">
-              A câmera mostra o ambiente como fundo do site.
-              O modelo 3D permanece interativo sobre a imagem.
-            </p>
-
-            <p id="cameraStatus" class="text-sm text-slate-400 mt-3">
-              Câmera desligada. Toque em Ativar câmera para começar.
-            </p>
-          </div>
+        <div id="status" class="status mt-4 px-1" aria-live="polite">
+          Coloque o arquivo modelo.glb na mesma pasta do index.html.
         </div>
 
       </section>
 
-      <!-- INFORMAÇÕES -->
       <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 
-        <div class="glass p-5">
-          <div class="text-2xl mb-3">◈</div>
-          <h3 class="font-bold">Objeto GLB</h3>
-          <p class="text-sm text-slate-300 mt-2">
-            Carregue seu próprio modelo tridimensional.
+        <article class="glass p-5">
+          <div class="text-2xl mb-3">📷</div>
+          <h3 class="font-bold">Câmera traseira</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            O ambiente real aparece como fundo do site.
           </p>
-        </div>
+        </article>
 
-        <div class="glass p-5">
-          <div class="text-2xl mb-3">📱</div>
-          <h3 class="font-bold">Câmera do celular</h3>
-          <p class="text-sm text-slate-300 mt-2">
-            Utilize a câmera traseira para visualizar o ambiente.
+        <article class="glass p-5">
+          <div class="text-2xl mb-3">🧭</div>
+          <h3 class="font-bold">Movimento do celular</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            Giroscópio e sensores de orientação alteram o ângulo do objeto.
           </p>
-        </div>
+        </article>
 
-        <div class="glass p-5">
-          <div class="text-2xl mb-3">↻</div>
-          <h3 class="font-bold">Controle por toque</h3>
-          <p class="text-sm text-slate-300 mt-2">
-            Gire e amplie o objeto com gestos.
+        <article class="glass p-5">
+          <div class="text-2xl mb-3">📦</div>
+          <h3 class="font-bold">Seu próprio GLB</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            Use seu modelo 3D colocando o arquivo na pasta do projeto.
           </p>
-        </div>
+        </article>
 
+      </section>
+
+      <section class="glass p-5 mt-6">
+        <h2 class="font-bold text-lg">Como publicar</h2>
+        <ol class="text-sm text-slate-300 mt-3 space-y-2 list-decimal list-inside leading-relaxed">
+          <li>Crie um repositório no GitHub.</li>
+          <li>Envie este <strong>index.html</strong>.</li>
+          <li>Envie seu modelo com o nome <strong>modelo.glb</strong>.</li>
+          <li>Ative GitHub Pages em <strong>Settings → Pages</strong>.</li>
+          <li>Abra o endereço do site pelo celular e toque em <strong>Ativar experiência</strong>.</li>
+        </ol>
       </section>
 
     </main>
 
-    <footer class="border-t border-white/10 mt-10">
-      <div class="max-w-7xl mx-auto px-5 md:px-8 py-6 text-center text-xs text-slate-400">
+    <footer class="border-t border-white/10 bg-slate-950/60 mt-8">
+      <div class="max-w-6xl mx-auto px-4 py-6 text-center text-xs text-slate-400">
         Meu Portfólio 3D • GitHub Pages
       </div>
     </footer>
@@ -385,136 +287,261 @@
   </div>
 
   <script>
-    const viewer = document.getElementById("viewer");
-    const cameraBackground = document.getElementById("cameraBackground");
-    const cameraPlaceholder = document.getElementById("cameraPlaceholder");
+    (() => {
+      const video = document.getElementById("camera");
+      const model = document.getElementById("model");
+      const loader = document.getElementById("loader");
+      const status = document.getElementById("status");
+      const startBtn = document.getElementById("startBtn");
+      const cameraBtn = document.getElementById("cameraBtn");
+      const motionBtn = document.getElementById("motionBtn");
+      const rotateBtn = document.getElementById("rotateBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const fileInput = document.getElementById("fileInput");
+      const modelName = document.getElementById("modelName");
 
-    const cameraBtn = document.getElementById("cameraBtn");
-    const headerCameraBtn = document.getElementById("headerCameraBtn");
-    const stopCameraBtn = document.getElementById("stopCameraBtn");
+      let stream = null;
+      let objectUrl = null;
+      let motionEnabled = false;
+      let rotating = true;
 
-    const cameraStatus = document.getElementById("cameraStatus");
-    const headerStatus = document.getElementById("headerStatus");
-    const headerDot = document.getElementById("headerDot");
+      // Valores filtrados para evitar movimentos bruscos.
+      let targetAlpha = 0;
+      let targetBeta = 75;
+      let targetGamma = 0;
 
-    const modelStatus = document.getElementById("modelStatus");
-    const viewerLoading = document.getElementById("viewerLoading");
+      let currentAlpha = 0;
+      let currentBeta = 75;
+      let currentGamma = 0;
 
-    const rotateBtn = document.getElementById("rotateBtn");
-    const resetBtn = document.getElementById("resetBtn");
+      function setStatus(message, type = "normal") {
+        status.textContent = message;
 
-    let cameraStream = null;
-    let isRotating = true;
-
-    // Iniciar câmera traseira
-    async function startCamera() {
-      if (!navigator.mediaDevices ||
-          !navigator.mediaDevices.getUserMedia) {
-        cameraStatus.textContent =
-          "Seu navegador não oferece suporte à câmera.";
-        return;
+        if (type === "error") {
+          status.style.color = "#fca5a5";
+        } else if (type === "success") {
+          status.style.color = "#86efac";
+        } else {
+          status.style.color = "#cbd5e1";
+        }
       }
 
-      try {
-        // Se houver câmera aberta, fecha antes de reabrir.
+      async function startCamera() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setStatus("Este navegador não permite acesso à câmera.", "error");
+          return;
+        }
+
+        try {
+          if (stream) stopCamera();
+
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            }
+          });
+
+          video.srcObject = stream;
+          await video.play();
+
+          setStatus(
+            "Câmera traseira ativa. Agora ative o movimento do celular.",
+            "success"
+          );
+        } catch (error) {
+          console.error(error);
+          setStatus(
+            "Não foi possível abrir a câmera. Autorize o acesso nas configurações do navegador.",
+            "error"
+          );
+        }
+      }
+
+      function stopCamera() {
+        if (!stream) return;
+
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        video.srcObject = null;
+      }
+
+      async function enableMotion() {
+        try {
+          // iPhone/iPad exigem uma chamada de permissão iniciada por toque.
+          if (typeof DeviceOrientationEvent !== "undefined" &&
+              typeof DeviceOrientationEvent.requestPermission === "function") {
+
+            const permission = await DeviceOrientationEvent.requestPermission();
+
+            if (permission !== "granted") {
+              setStatus(
+                "Permissão do sensor de movimento recusada.",
+                "error"
+              );
+              return;
+            }
+          }
+
+          if (!("DeviceOrientationEvent" in window)) {
+            setStatus(
+              "Este aparelho/navegador não oferece sensor de orientação.",
+              "error"
+            );
+            return;
+          }
+
+          window.addEventListener(
+            "deviceorientation",
+            handleOrientation,
+            true
+          );
+
+          motionEnabled = true;
+          motionBtn.disabled = true;
+          motionBtn.textContent = "🧭 Movimento ativo";
+
+          setStatus(
+            "Movimento ativo. Incline e gire o celular para movimentar o 3D.",
+            "success"
+          );
+
+        } catch (error) {
+          console.error(error);
+          setStatus(
+            "Não foi possível ativar o sensor de movimento.",
+            "error"
+          );
+        }
+      }
+
+      function normalizeAngle(value) {
+        if (!Number.isFinite(value)) return 0;
+        return ((value % 360) + 360) % 360;
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function handleOrientation(event) {
+        const alpha = Number.isFinite(event.alpha) ? event.alpha : 0;
+        const beta = Number.isFinite(event.beta) ? event.beta : 75;
+        const gamma = Number.isFinite(event.gamma) ? event.gamma : 0;
+
+        /*
+          alpha = rotação horizontal do aparelho
+          beta  = inclinação para frente/trás
+          gamma = inclinação lateral
+
+          O alpha controla o giro horizontal do modelo.
+          O beta controla a elevação da câmera.
+          O gamma adiciona uma pequena compensação lateral.
+        */
+        targetAlpha = normalizeAngle(alpha);
+        targetBeta = clamp(beta, 25, 155);
+        targetGamma = clamp(gamma, -45, 45);
+      }
+
+      function animateMotion() {
+        // Suavização para evitar tremores.
+        currentAlpha += (targetAlpha - currentAlpha) * 0.12;
+        currentBeta += (targetBeta - currentBeta) * 0.12;
+        currentGamma += (targetGamma - currentGamma) * 0.12;
+
+        if (motionEnabled) {
+          const orbitAlpha = currentAlpha;
+          const orbitBeta = currentBeta;
+
+          model.cameraOrbit =
+            `${orbitAlpha}deg ${orbitBeta}deg 2.5m`;
+        }
+
+        requestAnimationFrame(animateMotion);
+      }
+
+      function toggleRotation() {
+        rotating = !rotating;
+        model.autoRotate = rotating;
+
+        rotateBtn.textContent = rotating
+          ? "↻ Pausar rotação"
+          : "▶ Iniciar rotação";
+      }
+
+      function resetCamera() {
+        targetAlpha = 0;
+        targetBeta = 75;
+        targetGamma = 0;
+
+        currentAlpha = 0;
+        currentBeta = 75;
+        currentGamma = 0;
+
+        model.cameraOrbit = "0deg 75deg 2.5m";
+        model.fieldOfView = "45deg";
+
+        if (typeof model.jumpCameraToGoal === "function") {
+          model.jumpCameraToGoal();
+        }
+
+        setStatus("Câmera do modelo restaurada.");
+      }
+
+      function loadLocalModel(file) {
+        if (!file || !file.name.toLowerCase().endsWith(".glb")) {
+          setStatus("Selecione um arquivo .glb válido.", "error");
+          return;
+        }
+
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+
+        objectUrl = URL.createObjectURL(file);
+        model.src = objectUrl;
+        modelName.textContent = file.name;
+
+        loader.classList.remove("hidden");
+        setStatus(`Carregando ${file.name}...`);
+      }
+
+      model.addEventListener("load", () => {
+        loader.classList.add("hidden");
+        setStatus("Modelo GLB carregado. Você pode girá-lo com o toque ou pelo movimento do celular.", "success");
+      });
+
+      model.addEventListener("error", () => {
+        loader.classList.add("hidden");
+        setStatus(
+          "Não foi possível carregar modelo.glb. Verifique o arquivo.",
+          "error"
+        );
+      });
+
+      startBtn.addEventListener("click", async () => {
+        await startCamera();
+        await enableMotion();
+      });
+
+      cameraBtn.addEventListener("click", startCamera);
+      motionBtn.addEventListener("click", enableMotion);
+      rotateBtn.addEventListener("click", toggleRotation);
+      resetBtn.addEventListener("click", resetCamera);
+
+      fileInput.addEventListener("change", event => {
+        const file = event.target.files?.[0];
+        if (file) loadLocalModel(file);
+      });
+
+      window.addEventListener("beforeunload", () => {
         stopCamera();
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      });
 
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
-          audio: false
-        });
-
-        cameraBackground.srcObject = cameraStream;
-
-        await cameraBackground.play();
-
-        cameraPlaceholder.classList.add("hidden");
-
-        cameraBtn.disabled = true;
-        headerCameraBtn.disabled = true;
-        stopCameraBtn.disabled = false;
-
-        cameraStatus.textContent =
-          "Câmera traseira ativada. O objeto 3D está sobre o vídeo.";
-        headerStatus.textContent = "Câmera ativa";
-        headerDot.classList.add("active");
-
-      } catch (error) {
-        cameraStatus.textContent =
-          "Não foi possível acessar a câmera. Autorize o acesso no navegador e tente novamente.";
-
-        headerStatus.textContent = "Câmera desligada";
-        headerDot.classList.remove("active");
-
-        cameraBtn.disabled = false;
-        headerCameraBtn.disabled = false;
-        stopCameraBtn.disabled = true;
-      }
-    }
-
-    // Encerrar câmera
-    function stopCamera() {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-        cameraStream = null;
-      }
-
-      cameraBackground.srcObject = null;
-      cameraPlaceholder.classList.remove("hidden");
-
-      cameraBtn.disabled = false;
-      headerCameraBtn.disabled = false;
-      stopCameraBtn.disabled = true;
-
-      cameraStatus.textContent = "Câmera desligada.";
-      headerStatus.textContent = "Câmera desligada";
-      headerDot.classList.remove("active");
-    }
-
-    cameraBtn.addEventListener("click", startCamera);
-    headerCameraBtn.addEventListener("click", startCamera);
-    stopCameraBtn.addEventListener("click", stopCamera);
-
-    // Rotação automática
-    rotateBtn.addEventListener("click", () => {
-      isRotating = !isRotating;
-      viewer.autoRotate = isRotating;
-
-      rotateBtn.textContent = isRotating
-        ? "↻ Pausar rotação"
-        : "▶ Iniciar rotação";
-    });
-
-    // Restaurar câmera do modelo
-    resetBtn.addEventListener("click", () => {
-      viewer.cameraOrbit = "0deg 75deg 2.5m";
-      viewer.fieldOfView = "45deg";
-      viewer.jumpCameraToGoal();
-    });
-
-    // Modelo carregado
-    viewer.addEventListener("load", () => {
-      viewerLoading.classList.add("hidden");
-
-      modelStatus.textContent = "Modelo GLB carregado com sucesso.";
-      modelStatus.className = "text-sm text-emerald-300 mt-4 px-1";
-    });
-
-    // Erro de carregamento
-    viewer.addEventListener("error", () => {
-      viewerLoading.classList.add("hidden");
-
-      modelStatus.textContent =
-        "Erro ao carregar o modelo. Verifique se modelo.glb existe na mesma pasta do index.html.";
-      modelStatus.className = "text-sm text-red-300 mt-4 px-1";
-    });
-
-    // Encerrar câmera ao sair
-    window.addEventListener("beforeunload", stopCamera);
+      // Inicia a suavização do sensor.
+      animateMotion();
+    })();
   </script>
 
 </body>
