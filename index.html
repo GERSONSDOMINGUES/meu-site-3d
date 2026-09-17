@@ -87,6 +87,65 @@
 <body>
   <main class="max-w-6xl mx-auto px-4 py-6 sm:py-10">
 
+<!-- CÂMERA TRASEIRA DO CELULAR -->
+<section class="glass p-5 mt-6">
+  <div class="flex items-center justify-between gap-3 mb-4">
+    <div>
+      <h2 class="text-xl font-bold">Câmera do celular</h2>
+      <p class="text-sm text-slate-400 mt-1">
+        Use a câmera traseira para capturar imagens.
+      </p>
+    </div>
+
+    <span class="text-2xl">📷</span>
+  </div>
+
+  <div class="rounded-xl overflow-hidden bg-slate-950">
+    <video
+      id="cameraPreview"
+      autoplay
+      playsinline
+      muted
+      class="w-full max-h-96 object-contain">
+    </video>
+  </div>
+
+  <canvas id="cameraCanvas" class="hidden"></canvas>
+
+  <div class="flex flex-wrap gap-3 mt-4">
+    <button id="startCameraBtn" class="control-btn primary">
+      Abrir câmera traseira
+    </button>
+
+    <button id="captureBtn" class="control-btn" disabled>
+      Capturar imagem
+    </button>
+
+    <button id="stopCameraBtn" class="control-btn" disabled>
+      Fechar câmera
+    </button>
+  </div>
+
+  <p id="cameraStatus" class="text-sm text-slate-400 mt-3">
+    A câmera está desligada.
+  </p>
+
+  <div id="capturedContainer" class="hidden mt-5">
+    <h3 class="font-semibold mb-3">Imagem capturada</h3>
+
+    <img
+      id="capturedImage"
+      alt="Imagem capturada pela câmera traseira"
+      class="w-full max-h-96 object-contain rounded-xl bg-slate-950">
+
+    <a
+      id="downloadPhotoBtn"
+      class="control-btn inline-block mt-3"
+      download="foto-camera.png">
+      ↓ Salvar imagem
+    </a>
+  </div>
+</section>
     <header class="mb-8">
       <p class="text-sky-400 text-sm font-semibold tracking-widest uppercase">
         Portfólio 3D
@@ -655,6 +714,121 @@
     }
 
     init();
+    
+
+
+
+    
+const cameraPreview = document.getElementById("cameraPreview");
+const cameraCanvas = document.getElementById("cameraCanvas");
+const startCameraBtn = document.getElementById("startCameraBtn");
+const captureBtn = document.getElementById("captureBtn");
+const stopCameraBtn = document.getElementById("stopCameraBtn");
+const cameraStatus = document.getElementById("cameraStatus");
+const capturedContainer = document.getElementById("capturedContainer");
+const capturedImage = document.getElementById("capturedImage");
+const downloadPhotoBtn = document.getElementById("downloadPhotoBtn");
+
+let cameraStream = null;
+let photoUrl = null;
+
+// Abrir câmera traseira
+startCameraBtn.addEventListener("click", async () => {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Câmera não suportada");
+    }
+
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      audio: false
+    });
+
+    cameraPreview.srcObject = cameraStream;
+
+    startCameraBtn.disabled = true;
+    captureBtn.disabled = false;
+    stopCameraBtn.disabled = false;
+
+    cameraStatus.textContent = "Câmera traseira ativada.";
+    cameraStatus.className = "text-sm text-emerald-400 mt-3";
+
+  } catch (error) {
+    cameraStatus.textContent =
+      "Não foi possível acessar a câmera. Verifique a permissão do navegador.";
+    cameraStatus.className = "text-sm text-red-400 mt-3";
+  }
+});
+
+// Capturar foto
+captureBtn.addEventListener("click", () => {
+  if (!cameraStream) return;
+
+  const width = cameraPreview.videoWidth;
+  const height = cameraPreview.videoHeight;
+
+  if (!width || !height) {
+    cameraStatus.textContent = "Aguarde a câmera iniciar.";
+    return;
+  }
+
+  cameraCanvas.width = width;
+  cameraCanvas.height = height;
+
+  const context = cameraCanvas.getContext("2d");
+
+  context.drawImage(cameraPreview, 0, 0, width, height);
+
+  if (photoUrl) {
+    URL.revokeObjectURL(photoUrl);
+  }
+
+  cameraCanvas.toBlob(blob => {
+    if (!blob) return;
+
+    photoUrl = URL.createObjectURL(blob);
+
+    capturedImage.src = photoUrl;
+    downloadPhotoBtn.href = photoUrl;
+    capturedContainer.classList.remove("hidden");
+
+    cameraStatus.textContent = "Imagem capturada com sucesso.";
+    cameraStatus.className = "text-sm text-emerald-400 mt-3";
+  }, "image/png");
+});
+
+// Fechar câmera
+stopCameraBtn.addEventListener("click", stopCamera);
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+
+  cameraPreview.srcObject = null;
+
+  startCameraBtn.disabled = false;
+  captureBtn.disabled = true;
+  stopCameraBtn.disabled = true;
+
+  cameraStatus.textContent = "Câmera desligada.";
+  cameraStatus.className = "text-sm text-slate-400 mt-3";
+}
+
+window.addEventListener("beforeunload", () => {
+  stopCamera();
+
+  if (photoUrl) {
+    URL.revokeObjectURL(photoUrl);
+  }
+});
+
+
   </script>
 </body>
 </html>f
