@@ -20,17 +20,18 @@
       font-family: Arial, sans-serif;
     }
 
-    #viewer {
-      width: 100%;
-      height: min(65vh, 650px);
-      min-height: 350px;
-      position: relative;
-      overflow: hidden;
-      border-radius: 20px;
-      background:
-        radial-gradient(circle at 50% 35%, #263653 0%, #111b2e 48%, #080d18 100%);
-      touch-action: none;
-    }
+#viewer {
+  width: 100%;
+  height: min(65vh, 650px);
+  min-height: 350px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  /* Removemos o gradient sólido e deixamos o fundo limpo */
+  background: transparent; 
+  touch-action: none;
+}
+
 
     #viewer canvas {
       display: block;
@@ -85,6 +86,9 @@
 </head>
 
 <body>
+    <!-- Elemento de vídeo oculto que receberá o stream da câmera traseira -->
+<video id="webcam" autoplay playsinline muted style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -2; display: none;"></video>
+
   <main class="max-w-6xl mx-auto px-4 py-6 sm:py-10">
 
     <header class="mb-8">
@@ -239,29 +243,36 @@
     // Inicialização da cena 3D
     // --------------------------------------------------
 
-    function init() {
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0b1120);
+ function init() {
+  scene = new THREE.Scene();
+  // REMOVA ou comente a linha abaixo para permitir transparência:
+  // scene.background = new THREE.Color(0x0b1120);
 
-      camera = new THREE.PerspectiveCamera(
-        45,
-        viewer.clientWidth / viewer.clientHeight,
-        0.01,
-        1000
-      );
-      camera.position.set(0, 0, 4);
+  camera = new THREE.PerspectiveCamera(
+    45,
+    viewer.clientWidth / viewer.clientHeight,
+    0.01,
+    1000
+  );
+  camera.position.set(0, 0, 4);
 
-      renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true
-      });
+  renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true // Mantém o fundo transparente para renderizar sobre o vídeo
+  });
 
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(viewer.clientWidth, viewer.clientHeight);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.shadowMap.enabled = true;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(viewer.clientWidth, viewer.clientHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
 
-      viewer.appendChild(renderer.domElement);
+  viewer.appendChild(renderer.domElement);
+  
+  // Chame a função para iniciar a câmera junto com o site
+  startCamera();
+
+  // ... (restante das luzes e do código da função init)
+
 
       // Iluminação
       scene.add(new THREE.AmbientLight(0xffffff, 1.8));
@@ -657,4 +668,4 @@
     init();
   </script>
 </body>
-</html>
+</html>f
