@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Meu Objeto 3D em AR</title>
+  <title>Meu Objeto 3D em AR (Localização)</title>
 
-  <!-- A-Frame + AR.js -->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  
+  <!-- AR.js com Location-Based AR -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
-  <!-- Alternativa com marcador Hiro (mais simples e estável) -->
-  <!-- <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script> -->
 
   <style>
     html, body {
@@ -33,16 +33,29 @@
       text-align: center;
       transition: opacity 0.5s;
     }
+    #status {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      color: #0f0;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      z-index: 9999;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
 
-  <div id="aviso">Aponte a câmera para o marcador</div>
+  <div id="aviso">Aguardando sinal de GPS e permissão do giroscópio...</div>
+  <div id="status">GPS: buscando...</div>
 
-  <!-- Cena AR com device orientation (giroscópio) -->
+  <!-- Cena com Location-Based AR -->
   <a-scene
     embedded
-    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
     vr-mode-ui="enabled: false"
     renderer="logarithmicDepthBuffer: true; precision: medium;"
     device-orientation-permission-ui="enabled: true">
@@ -51,38 +64,43 @@
     <a-light type="ambient" color="#ffffff" intensity="0.9"></a-light>
     <a-light type="directional" position="1 2 1" intensity="0.6"></a-light>
 
-    <!-- Marcador Hiro padrão -->
-    <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.01">
+    <!-- Câmera com GPS - o componente principal para AR sem marcador -->
+    <a-camera
+      id="gps-camera"
+      gps-new-camera="gpsMinDistance: 5; gpsMinAccuracy: 100; simulateLatitude: -23.5505; simulateLongitude: -46.6333;"
+      rotation-reader>
+    </a-camera>
 
-      <!-- 👇 SUBSTITUA pelo seu modelo .glb -->
-      <a-entity
-        position="0 0.5 0"
-        scale="0.5 0.5 0.5"
-        rotation="0 0 0"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear"
-        gltf-model="modelo.glb">
-      </a-entity>
+    <!-- 
+      👇 SEU MODELO 3D POSICIONADO POR GPS
+      Substitua latitude/longitude pelas coordenadas onde quer que o objeto apareça.
+      O objeto ficará ancorado nesse ponto do mundo real.
+    -->
+    <a-entity
+      id="meu-modelo"
+      gltf-model="modelo.glb"
+      gps-new-entity-place="latitude: -23.5505; longitude: -46.6333;"
+      position="0 0 0"
+      scale="2 2 2"
+      rotation="0 0 0"
+      animation="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear">
+    </a-entity>
 
-      <!-- Fallback: cubo caso o modelo não carregue -->
-      <!--
-      <a-box position="0 0.5 0" scale="0.5 0.5 0.5" color="#ff4b2b"
-             animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
-      </a-box>
-      -->
-
-    </a-marker>
-
-    <!-- Câmera com giroscópio -->
-    <a-entity camera></a-entity>
+    <!-- Fallback visual: aparece se o modelo não carregar -->
+    <a-box
+      gps-new-entity-place="latitude: -23.5505; longitude: -46.6333;"
+      position="0 0.5 0"
+      scale="1 1 1"
+      color="#ff4b2b"
+      visible="false">
+    </a-box>
 
   </a-scene>
 
   <script>
-    // Esconde o aviso após 5s
-    setTimeout(() => {
-      const aviso = document.getElementById('aviso');
-      if (aviso) aviso.style.opacity = '0';
-    }, 5000);
+    // Status do GPS e permissão de giroscópio
+    const aviso = document.getElementById('aviso');
+    const status = document.getElementById('status');
 
     // Pede permissão de giroscópio no iOS 13+
     if (typeof DeviceOrientationEvent !== 'undefined' &&
@@ -90,13 +108,49 @@
       document.body.addEventListener('click', () => {
         DeviceOrientationEvent.requestPermission()
           .then(state => {
-            if (state !== 'granted') {
-              alert('Permissão de orientação negada.');
+            if (state === 'granted') {
+              aviso.textContent = 'Giroscópio ativado. Mova o celular para explorar.';
+            } else {
+              aviso.textContent = 'Permissão de orientação negada.';
             }
           })
           .catch(console.error);
       }, { once: true });
+    } else {
+      // Android ou navegadores que não exigem permissão explícita
+      aviso.textContent = 'Mova o celular para encontrar o objeto.';
     }
+
+    // Escuta eventos de atualização do GPS
+    window.addEventListener('load', () => {
+      const camera = document.querySelector('#gps-camera');
+      
+      if (camera) {
+        camera.addEventListener('gps-camera-update-position', (e) => {
+          const pos = e.detail.position;
+          status.textContent = `GPS: ${pos.latitude.toFixed(4)}, ${pos.longitude.toFixed(4)}`;
+          
+          if (aviso.textContent.includes('Aguardando')) {
+            aviso.textContent = 'Mova o celular para encontrar o objeto.';
+          }
+        });
+
+        camera.addEventListener('gps-camera-update-error', (e) => {
+          status.textContent = 'Erro de GPS: ' + (e.detail.error?.message || 'desconhecido');
+          aviso.textContent = 'Não foi possível obter sua localização.';
+        });
+      }
+
+      // Verifica se o modelo carregou; se não, mostra o cubo fallback
+      const modelo = document.querySelector('#meu-modelo');
+      if (modelo) {
+        modelo.addEventListener('model-error', () => {
+          console.warn('Modelo não carregou. Ativando fallback.');
+          document.querySelector('a-box').setAttribute('visible', 'true');
+          aviso.textContent = 'Modelo não encontrado. Mostrando cubo de demonstração.';
+        });
+      }
+    });
   </script>
 </body>
 </html>
