@@ -1,156 +1,132 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Meu Objeto 3D em AR (Localização)</title>
-
-  <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Experience - Realidade Aumentada</title>
   
-  <!-- AR.js com Location-Based AR -->
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
-
+  <!-- A-Frame + AR.js -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    #aviso {
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+    
+    #ui {
       position: fixed;
-      top: 10px;
+      top: 20px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 8px 16px;
-      border-radius: 20px;
+      z-index: 999;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 30px;
+      backdrop-filter: blur(10px);
       font-size: 14px;
-      z-index: 9999;
-      pointer-events: none;
       text-align: center;
+      pointer-events: none;
+    }
+    
+    #loading {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      color: white;
+      z-index: 1000;
       transition: opacity 0.5s;
     }
-    #status {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.6);
-      color: #0f0;
-      padding: 6px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      z-index: 9999;
-      pointer-events: none;
+    
+    #loading h1 { font-size: 2.5em; margin-bottom: 20px; }
+    #loading p { font-size: 1.1em; opacity: 0.9; }
+    
+    .spinner {
+      width: 50px; height: 50px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
     }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    #btn-start {
+      margin-top: 30px;
+      padding: 15px 40px;
+      font-size: 1.1em;
+      background: white;
+      color: #667eea;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform 0.2s;
+    }
+    
+    #btn-start:hover { transform: scale(1.05); }
   </style>
 </head>
 <body>
 
-  <div id="aviso">Aguardando sinal de GPS e permissão do giroscópio...</div>
-  <div id="status">GPS: buscando...</div>
+  <!-- Tela de Loading -->
+  <div id="loading">
+    <h1>🥽 AR Experience</h1>
+    <div class="spinner"></div>
+    <p>Apontando a câmera para o marcador Hiro...</p>
+    <button id="btn-start" onclick="startAR()">Iniciar Realidade Aumentada</button>
+  </div>
 
-  <!-- Cena com Location-Based AR -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true; precision: medium;"
-    device-orientation-permission-ui="enabled: true">
+  <!-- Interface -->
+  <div id="ui">📍 Aponte para o marcador Hiro para ver o modelo 3D</div>
 
-    <!-- Iluminação -->
-    <a-light type="ambient" color="#ffffff" intensity="0.9"></a-light>
-    <a-light type="directional" position="1 2 1" intensity="0.6"></a-light>
+  <!-- Cena AR -->
+  <a-scene 
+  embedded 
+  arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+  renderer="logarithmicDepthBuffer: true; alpha: true;"
+  vr-mode-ui="enabled: false"
+  gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;">
 
-    <!-- Câmera com GPS - o componente principal para AR sem marcador -->
-    <a-camera
-      id="gps-camera"
-      gps-new-camera="gpsMinDistance: 5; gpsMinAccuracy: 100; simulateLatitude: -23.5505; simulateLongitude: -46.6333;"
-      rotation-reader>
-    </a-camera>
+  <!-- 1. PRÉ-CARREGAMENTO DOS ASSETS -->
+  <a-assets>
+    <!-- Substitua "seu-modelo.glb" pelo caminho do seu arquivo -->
+    <a-asset-item id="meuModelo" src="seu-modelo.glb"></a-asset-item>
+  </a-assets>
 
-    <!-- 
-      👇 SEU MODELO 3D POSICIONADO POR GPS
-      Substitua latitude/longitude pelas coordenadas onde quer que o objeto apareça.
-      O objeto ficará ancorado nesse ponto do mundo real.
-    -->
-    <a-entity
-      id="meu-modelo"
-      gltf-model="modelo.glb"
-      gps-new-entity-place="latitude: -23.5505; longitude: -46.6333;"
-      position="0 0 0"
-      scale="2 2 2"
+  <!-- 2. MARCADOR HIRO -->
+  <a-marker preset="hiro">
+    
+    <!-- 3. CARREGAMENTO DO MODELO GLTF/GLB -->
+    <!-- Ajuste position, rotation e scale conforme necessário -->
+    <a-entity 
+      gltf-model="#meuModelo"
+      position="0 0 0" 
       rotation="0 0 0"
-      animation="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear">
+      scale="1 1 1">
     </a-entity>
+    
+  </a-marker>
 
-    <!-- Fallback visual: aparece se o modelo não carregar -->
-    <a-box
-      gps-new-entity-place="latitude: -23.5505; longitude: -46.6333;"
-      position="0 0.5 0"
-      scale="1 1 1"
-      color="#ff4b2b"
-      visible="false">
-    </a-box>
-
-  </a-scene>
+  <a-entity camera></a-entity>
+</a-scene>
 
   <script>
-    // Status do GPS e permissão de giroscópio
-    const aviso = document.getElementById('aviso');
-    const status = document.getElementById('status');
-
-    // Pede permissão de giroscópio no iOS 13+
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission === 'function') {
-      document.body.addEventListener('click', () => {
-        DeviceOrientationEvent.requestPermission()
-          .then(state => {
-            if (state === 'granted') {
-              aviso.textContent = 'Giroscópio ativado. Mova o celular para explorar.';
-            } else {
-              aviso.textContent = 'Permissão de orientação negada.';
-            }
-          })
-          .catch(console.error);
-      }, { once: true });
-    } else {
-      // Android ou navegadores que não exigem permissão explícita
-      aviso.textContent = 'Mova o celular para encontrar o objeto.';
+    function startAR() {
+      const loading = document.getElementById('loading');
+      loading.style.opacity = '0';
+      setTimeout(() => loading.style.display = 'none', 500);
     }
-
-    // Escuta eventos de atualização do GPS
-    window.addEventListener('load', () => {
-      const camera = document.querySelector('#gps-camera');
-      
-      if (camera) {
-        camera.addEventListener('gps-camera-update-position', (e) => {
-          const pos = e.detail.position;
-          status.textContent = `GPS: ${pos.latitude.toFixed(4)}, ${pos.longitude.toFixed(4)}`;
-          
-          if (aviso.textContent.includes('Aguardando')) {
-            aviso.textContent = 'Mova o celular para encontrar o objeto.';
-          }
-        });
-
-        camera.addEventListener('gps-camera-update-error', (e) => {
-          status.textContent = 'Erro de GPS: ' + (e.detail.error?.message || 'desconhecido');
-          aviso.textContent = 'Não foi possível obter sua localização.';
-        });
-      }
-
-      // Verifica se o modelo carregou; se não, mostra o cubo fallback
-      const modelo = document.querySelector('#meu-modelo');
-      if (modelo) {
-        modelo.addEventListener('model-error', () => {
-          console.warn('Modelo não carregou. Ativando fallback.');
-          document.querySelector('a-box').setAttribute('visible', 'true');
-          aviso.textContent = 'Modelo não encontrado. Mostrando cubo de demonstração.';
-        });
-      }
-    });
+    
+    // Auto-iniciar após 3 segundos (opcional)
+    // setTimeout(startAR, 3000);
   </script>
+
 </body>
 </html>
