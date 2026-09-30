@@ -1,56 +1,536 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Teste</title>
-<style>body{margin:0;background:#222;}</style>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AR com Giroscópio</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #000;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+            font-size: 14px;
+            max-width: 80%;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        button:active {
+            background: #45a049;
+            transform: scale(0.98);
+        }
+        #status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+            font-size: 12px;
+        }
+        #file-input {
+            display: none;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+    </style>
 </head>
 <body>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-<script type="module">
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    <div id="info">
+        <strong>📱 AR com Giroscópio</strong><br>
+        Mova seu dispositivo para girar o objeto 3D
+    </div>
+    
+    <div id="status">
+        <span id="gyro-status">Giroscópio: Verificando...</span>
+    </div>
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x222222);
+    <div id="controls">
+        <button id="load-btn">📁 Carregar 3D</button>
+        <button id="reset-btn">🔄 Resetar</button>
+        <button id="camera-btn">🎥 Ativar Câmera</button>
+        <input type="file" id="file-input" accept=".glb,.gltf,.obj,.fbx">
+    </div>
 
-const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(0, 1, 3);
+    <!-- Three.js e Loaders -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
+    <script>
+        // ==================== CONFIGURAÇÕES INICIAIS ====================
+        let scene, camera, renderer, model, controls;
+        let gyroEnabled = false;
+        let cameraStream = null;
+        let videoElement = null;
+        let videoTexture = null;
+        
+        // Valores de rotação do giroscópio
+        let gyroRotation = {
+            alpha: 0,
+            beta: 0,
+            gamma: 0
+        };
+        
+        // Suavização
+        let smoothRotation = {
+            alpha: 0,
+            beta: 0,
+            gamma: 0
+        };
+        const SMOOTHING = 0.1;
 
-scene.add(new THREE.AmbientLight(0xffffff, 2));
-const luz = new THREE.DirectionalLight(0xffffff, 2);
-luz.position.set(3, 5, 2);
-scene.add(luz);
+        // ==================== INICIALIZAÇÃO ====================
+        function init() {
+            // Cena
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111122);
 
-// 👇 MUDE AQUI
-new GLTFLoader().load('./modelo.glb',
-  (gltf) => {
-    console.log('✅ Carregou!', gltf);
-    scene.add(gltf.scene);
-  },
-  (xhr) => console.log('Carregando', (xhr.loaded/xhr.total*100).toFixed(0) + '%'),
-  (err) => console.error('❌ Erro:', err)
-);
+            // Câmera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1, 4);
 
-(function anim() {
-  requestAnimationFrame(anim);
-  renderer.render(scene, camera);
-})();
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
 
-addEventListener('resize', () => {
-  camera.aspect = innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
-</script>
+            // Controles OrbitControls (para mouse quando não estiver usando giroscópio)
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = false;
+            controls.enableZoom = true;
+            controls.target.set(0, 0.5, 0);
+
+            // Iluminação
+            setupLights();
+
+            // Modelo padrão (cubo de exemplo)
+            createDefaultModel();
+
+            // Grid e ambiente
+            setupEnvironment();
+
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            
+            // Iniciar verificação do giroscópio
+            checkGyroscope();
+
+            // Iniciar animação
+            animate();
+        }
+
+        // ==================== ILUMINAÇÃO ====================
+        function setupLights() {
+            // Luz ambiente
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            // Luz direcional principal
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 10, 7);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            // Luz de preenchimento
+            const fillLight = new THREE.PointLight(0x4466ff, 0.5);
+            fillLight.position.set(-5, 3, 5);
+            scene.add(fillLight);
+
+            // Luz traseira
+            const backLight = new THREE.PointLight(0xff6644, 0.3);
+            backLight.position.set(0, 2, -5);
+            scene.add(backLight);
+        }
+
+        // ==================== AMBIENTE ====================
+        function setupEnvironment() {
+            // Grid
+            const gridHelper = new THREE.GridHelper(10, 20, 0x444444, 0x222222);
+            gridHelper.position.y = -0.01;
+            scene.add(gridHelper);
+
+            // Chão refletivo
+            const groundGeometry = new THREE.PlaneGeometry(20, 20);
+            const groundMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a2e,
+                roughness: 0.8,
+                metalness: 0.2,
+                transparent: true,
+                opacity: 0.5
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.01;
+            ground.receiveShadow = true;
+            scene.add(ground);
+        }
+
+        // ==================== MODELO PADRÃO ====================
+        function createDefaultModel() {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x4CAF50,
+                roughness: 0.3,
+                metalness: 0.5,
+                emissive: 0x1a3a1a
+            });
+            model = new THREE.Mesh(geometry, material);
+            model.castShadow = true;
+            model.receiveShadow = true;
+            model.position.y = 0.5;
+            scene.add(model);
+        }
+
+        // ==================== CARREGAR MODELO 3D ====================
+        function loadModel(file) {
+            const reader = new FileReader();
+            const extension = file.name.split('.').pop().toLowerCase();
+
+            reader.onload = function(e) {
+                const contents = e.target.result;
+
+                // Remove modelo antigo
+                if (model) {
+                    scene.remove(model);
+                }
+
+                let loader;
+                let onLoad;
+
+                if (extension === 'glb' || extension === 'gltf') {
+                    loader = new THREE.GLTFLoader();
+                    onLoad = function(gltf) {
+                        model = gltf.scene;
+                        setupLoadedModel(model);
+                    };
+                    loader.parse(contents, '', onLoad, onError);
+                } 
+                else if (extension === 'obj') {
+                    loader = new THREE.OBJLoader();
+                    model = loader.parse(contents);
+                    setupLoadedModel(model);
+                }
+                else if (extension === 'fbx') {
+                    loader = new THREE.FBXLoader();
+                    model = loader.parse(contents, '');
+                    setupLoadedModel(model);
+                }
+                else {
+                    alert('Formato não suportado. Use .glb, .gltf, .obj ou .fbx');
+                    return;
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function setupLoadedModel(loadedModel) {
+            // Centralizar modelo
+            const box = new THREE.Box3().setFromObject(loadedModel);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            // Mover para origem
+            loadedModel.position.x = -center.x;
+            loadedModel.position.y = -center.y + (size.y / 2);
+            loadedModel.position.z = -center.z;
+
+            // Escalar se for muito grande ou pequeno
+            const maxDim = Math.max(size.x, size.y, size.z);
+            if (maxDim > 3) {
+                const scale = 3 / maxDim;
+                loadedModel.scale.set(scale, scale, scale);
+            } else if (maxDim < 0.5) {
+                const scale = 1.5 / maxDim;
+                loadedModel.scale.set(scale, scale, scale);
+            }
+
+            // Aplicar sombras
+            loadedModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            model = loadedModel;
+            scene.add(model);
+            
+            console.log('Modelo carregado com sucesso!');
+        }
+
+        function onError(error) {
+            console.error('Erro ao carregar modelo:', error);
+            alert('Erro ao carregar o modelo. Verifique o formato do arquivo.');
+        }
+
+        // ==================== GIROSCÓPIO ====================
+        function checkGyroscope() {
+            if (window.DeviceOrientationEvent) {
+                // Verificar se precisa de permissão (iOS 13+)
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    document.getElementById('gyro-status').innerHTML = 
+                        '<span class="error">Toque em "Ativar Giroscópio"</span>';
+                } else {
+                    // Android - funciona direto
+                    window.addEventListener('deviceorientation', handleOrientation);
+                    gyroEnabled = true;
+                    document.getElementById('gyro-status').innerHTML = 
+                        '✅ Giroscópio ativo';
+                }
+            } else {
+                document.getElementById('gyro-status').innerHTML = 
+                    '<span class="error">❌ Giroscópio não suportado</span>';
+            }
+        }
+
+        function requestGyroPermission() {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                            gyroEnabled = true;
+                            document.getElementById('gyro-status').innerHTML = 
+                                '✅ Giroscópio ativo';
+                        } else {
+                            document.getElementById('gyro-status').innerHTML = 
+                                '<span class="error">❌ Permissão negada</span>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro ao solicitar permissão:', error);
+                        document.getElementById('gyro-status').innerHTML = 
+                            '<span class="error">❌ Erro na permissão</span>';
+                    });
+            } else {
+                // Android
+                window.addEventListener('deviceorientation', handleOrientation);
+                gyroEnabled = true;
+                document.getElementById('gyro-status').innerHTML = 
+                    '✅ Giroscópio ativo';
+            }
+        }
+
+        function handleOrientation(event) {
+            if (!gyroEnabled) return;
+
+            // Obter valores do giroscópio (em graus)
+            gyroRotation.alpha = event.alpha || 0;  // 0-360 (bússola)
+            gyroRotation.beta = event.beta || 0;    // -180 a 180 (frente/trás)
+            gyroRotation.gamma = event.gamma || 0;  // -90 a 90 (esquerda/direita)
+
+            // Suavizar movimentos
+            smoothRotation.alpha += (gyroRotation.alpha - smoothRotation.alpha) * SMOOTHING;
+            smoothRotation.beta += (gyroRotation.beta - smoothRotation.beta) * SMOOTHING;
+            smoothRotation.gamma += (gyroRotation.gamma - smoothRotation.gamma) * SMOOTHING;
+
+            // Aplicar rotação ao modelo
+            if (model) {
+                // Converter graus para radianos
+                const alphaRad = THREE.MathUtils.degToRad(smoothRotation.alpha);
+                const betaRad = THREE.MathUtils.degToRad(smoothRotation.beta);
+                const gammaRad = THREE.MathUtils.degToRad(smoothRotation.gamma);
+
+                // Aplicar rotações
+                // Alpha: rotação em torno do eixo Y (bússola)
+                // Beta: rotação em torno do eixo X (inclinação frente/trás)
+                // Gamma: rotação em torno do eixo Z (inclinação lateral)
+                
+                model.rotation.y = alphaRad;
+                model.rotation.x = betaRad * 0.5;
+                model.rotation.z = -gammaRad * 0.5;
+            }
+        }
+
+        // ==================== CÂMERA (REALIDADE AUMENTADA) ====================
+        function startCamera() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment', // Câmera traseira
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                })
+                .then(stream => {
+                    cameraStream = stream;
+                    
+                    // Criar elemento de vídeo
+                    videoElement = document.createElement('video');
+                    videoElement.srcObject = stream;
+                    videoElement.setAttribute('playsinline', '');
+                    videoElement.setAttribute('autoplay', '');
+                    videoElement.muted = true;
+                    
+                    // Estilizar vídeo como fundo
+                    videoElement.style.position = 'fixed';
+                    videoElement.style.top = '0';
+                    videoElement.style.left = '0';
+                    videoElement.style.width = '100%';
+                    videoElement.style.height = '100%';
+                    videoElement.style.objectFit = 'cover';
+                    videoElement.style.zIndex = '-1';
+                    
+                    document.body.appendChild(videoElement);
+                    
+                    // Remover fundo da cena
+                    scene.background = null;
+                    
+                    // Ativar transparência no renderer
+                    renderer.setClearColor(0x000000, 0);
+                    
+                    document.getElementById('camera-btn').textContent = '🎥 Câmera Ativa';
+                    document.getElementById('camera-btn').style.background = '#ff6b6b';
+                    
+                    videoElement.play();
+                })
+                .catch(error => {
+                    console.error('Erro ao acessar câmera:', error);
+                    alert('Não foi possível acessar a câmera. Verifique as permissões.');
+                });
+            } else {
+                alert('Câmera não suportada neste dispositivo.');
+            }
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            if (videoElement) {
+                videoElement.remove();
+                videoElement = null;
+            }
+            
+            scene.background = new THREE.Color(0x111122);
+            renderer.setClearColor(0x111122, 1);
+            
+            document.getElementById('camera-btn').textContent = '🎥 Ativar Câmera';
+            document.getElementById('camera-btn').style.background = '#4CAF50';
+        }
+
+        // ==================== RESET ====================
+        function resetModel() {
+            if (model) {
+                model.rotation.set(0, 0, 0);
+                model.position.set(0, 0.5, 0);
+                model.scale.set(1, 1, 1);
+            }
+            
+            smoothRotation.alpha = 0;
+            smoothRotation.beta = 0;
+            smoothRotation.gamma = 0;
+            
+            if (controls) {
+                controls.target.set(0, 0.5, 0);
+                camera.position.set(0, 1, 4);
+                controls.update();
+            }
+        }
+
+        // ==================== EVENTOS ====================
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ==================== ANIMAÇÃO ====================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Atualizar controles (se não estiver usando giroscópio)
+            if (!gyroEnabled || !model) {
+                controls.update();
+            }
+
+            // Rotação automática suave quando não há giroscópio
+            if (!gyroEnabled && model) {
+                model.rotation.y += 0.005;
+            }
+
+            // Flutuação suave do modelo
+            if (model) {
+                model.position.y = 0.5 + Math.sin(Date.now() * 0.002) * 0.05;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // ==================== BOTÕES ====================
+        document.getElementById('load-btn').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+
+        document.getElementById('file-input').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                loadModel(file);
+            }
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', resetModel);
+
+        document.getElementById('camera-btn').addEventListener('click', () => {
+            if (cameraStream) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        });
+
+        // Solicitar permissão do giroscópio no primeiro toque
+        document.addEventListener('click', function requestGyro() {
+            if (!gyroEnabled && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                requestGyroPermission();
+            }
+            document.removeEventListener('click', requestGyro);
+        }, { once: true });
+
+        // ==================== INICIAR ====================
+        init();
+    </script>
 </body>
 </html>
