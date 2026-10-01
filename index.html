@@ -98,7 +98,6 @@
         let gyroEnabled = false;
         let cameraStream = null;
         let videoElement = null;
-        let videoTexture = null;
         
         // Valores de rotação do giroscópio
         let gyroRotation = {
@@ -132,7 +131,7 @@
             renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // Controles OrbitControls (para mouse quando não estiver usando giroscópio)
+            // Controles OrbitControls
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
@@ -145,9 +144,6 @@
 
             // Modelo padrão (cubo de exemplo)
             createDefaultModel();
-
-            // Grid e ambiente
-            setupEnvironment();
 
             // Event listeners
             window.addEventListener('resize', onWindowResize);
@@ -162,7 +158,7 @@
         // ==================== ILUMINAÇÃO ====================
         function setupLights() {
             // Luz ambiente
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
 
             // Luz direcional principal
@@ -172,37 +168,14 @@
             scene.add(directionalLight);
 
             // Luz de preenchimento
-            const fillLight = new THREE.PointLight(0x4466ff, 0.5);
+            const fillLight = new THREE.PointLight(0x4466ff, 0.6);
             fillLight.position.set(-5, 3, 5);
             scene.add(fillLight);
 
             // Luz traseira
-            const backLight = new THREE.PointLight(0xff6644, 0.3);
+            const backLight = new THREE.PointLight(0xff6644, 0.4);
             backLight.position.set(0, 2, -5);
             scene.add(backLight);
-        }
-
-        // ==================== AMBIENTE ====================
-        function setupEnvironment() {
-            // Grid
-            const gridHelper = new THREE.GridHelper(10, 20, 0x444444, 0x222222);
-            gridHelper.position.y = -0.01;
-            scene.add(gridHelper);
-
-            // Chão refletivo
-            const groundGeometry = new THREE.PlaneGeometry(20, 20);
-            const groundMaterial = new THREE.MeshStandardMaterial({
-                color: 0x1a1a2e,
-                roughness: 0.8,
-                metalness: 0.2,
-                transparent: true,
-                opacity: 0.5
-            });
-            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-            ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -0.01;
-            ground.receiveShadow = true;
-            scene.add(ground);
         }
 
         // ==================== MODELO PADRÃO ====================
@@ -229,7 +202,6 @@
             reader.onload = function(e) {
                 const contents = e.target.result;
 
-                // Remove modelo antigo
                 if (model) {
                     scene.remove(model);
                 }
@@ -265,17 +237,14 @@
         }
 
         function setupLoadedModel(loadedModel) {
-            // Centralizar modelo
             const box = new THREE.Box3().setFromObject(loadedModel);
             const center = box.getCenter(new THREE.Vector3());
             const size = box.getSize(new THREE.Vector3());
             
-            // Mover para origem
             loadedModel.position.x = -center.x;
             loadedModel.position.y = -center.y + (size.y / 2);
             loadedModel.position.z = -center.z;
 
-            // Escalar se for muito grande ou pequeno
             const maxDim = Math.max(size.x, size.y, size.z);
             if (maxDim > 3) {
                 const scale = 3 / maxDim;
@@ -285,7 +254,6 @@
                 loadedModel.scale.set(scale, scale, scale);
             }
 
-            // Aplicar sombras
             loadedModel.traverse((child) => {
                 if (child.isMesh) {
                     child.castShadow = true;
@@ -307,12 +275,10 @@
         // ==================== GIROSCÓPIO ====================
         function checkGyroscope() {
             if (window.DeviceOrientationEvent) {
-                // Verificar se precisa de permissão (iOS 13+)
                 if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                     document.getElementById('gyro-status').innerHTML = 
-                        '<span class="error">Toque em "Ativar Giroscópio"</span>';
+                        '<span class="error">Toque na tela para ativar</span>';
                 } else {
-                    // Android - funciona direto
                     window.addEventListener('deviceorientation', handleOrientation);
                     gyroEnabled = true;
                     document.getElementById('gyro-status').innerHTML = 
@@ -344,7 +310,6 @@
                             '<span class="error">❌ Erro na permissão</span>';
                     });
             } else {
-                // Android
                 window.addEventListener('deviceorientation', handleOrientation);
                 gyroEnabled = true;
                 document.getElementById('gyro-status').innerHTML = 
@@ -355,28 +320,19 @@
         function handleOrientation(event) {
             if (!gyroEnabled) return;
 
-            // Obter valores do giroscópio (em graus)
-            gyroRotation.alpha = event.alpha || 0;  // 0-360 (bússola)
-            gyroRotation.beta = event.beta || 0;    // -180 a 180 (frente/trás)
-            gyroRotation.gamma = event.gamma || 0;  // -90 a 90 (esquerda/direita)
+            gyroRotation.alpha = event.alpha || 0;
+            gyroRotation.beta = event.beta || 0;
+            gyroRotation.gamma = event.gamma || 0;
 
-            // Suavizar movimentos
             smoothRotation.alpha += (gyroRotation.alpha - smoothRotation.alpha) * SMOOTHING;
             smoothRotation.beta += (gyroRotation.beta - smoothRotation.beta) * SMOOTHING;
             smoothRotation.gamma += (gyroRotation.gamma - smoothRotation.gamma) * SMOOTHING;
 
-            // Aplicar rotação ao modelo
             if (model) {
-                // Converter graus para radianos
                 const alphaRad = THREE.MathUtils.degToRad(smoothRotation.alpha);
                 const betaRad = THREE.MathUtils.degToRad(smoothRotation.beta);
                 const gammaRad = THREE.MathUtils.degToRad(smoothRotation.gamma);
 
-                // Aplicar rotações
-                // Alpha: rotação em torno do eixo Y (bússola)
-                // Beta: rotação em torno do eixo X (inclinação frente/trás)
-                // Gamma: rotação em torno do eixo Z (inclinação lateral)
-                
                 model.rotation.y = alphaRad;
                 model.rotation.x = betaRad * 0.5;
                 model.rotation.z = -gammaRad * 0.5;
@@ -388,7 +344,7 @@
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: 'environment', // Câmera traseira
+                        facingMode: 'environment',
                         width: { ideal: 1280 },
                         height: { ideal: 720 }
                     }
@@ -396,14 +352,12 @@
                 .then(stream => {
                     cameraStream = stream;
                     
-                    // Criar elemento de vídeo
                     videoElement = document.createElement('video');
                     videoElement.srcObject = stream;
                     videoElement.setAttribute('playsinline', '');
                     videoElement.setAttribute('autoplay', '');
                     videoElement.muted = true;
                     
-                    // Estilizar vídeo como fundo
                     videoElement.style.position = 'fixed';
                     videoElement.style.top = '0';
                     videoElement.style.left = '0';
@@ -414,10 +368,7 @@
                     
                     document.body.appendChild(videoElement);
                     
-                    // Remover fundo da cena
                     scene.background = null;
-                    
-                    // Ativar transparência no renderer
                     renderer.setClearColor(0x000000, 0);
                     
                     document.getElementById('camera-btn').textContent = '🎥 Câmera Ativa';
@@ -481,17 +432,14 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // Atualizar controles (se não estiver usando giroscópio)
             if (!gyroEnabled || !model) {
                 controls.update();
             }
 
-            // Rotação automática suave quando não há giroscópio
             if (!gyroEnabled && model) {
                 model.rotation.y += 0.005;
             }
 
-            // Flutuação suave do modelo
             if (model) {
                 model.position.y = 0.5 + Math.sin(Date.now() * 0.002) * 0.05;
             }
@@ -521,7 +469,6 @@
             }
         });
 
-        // Solicitar permissão do giroscópio no primeiro toque
         document.addEventListener('click', function requestGyro() {
             if (!gyroEnabled && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 requestGyroPermission();
